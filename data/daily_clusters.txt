@@ -1,0 +1,33 @@
+<CLUSTER_START>
+[CLUSTER_ID: 0]
+[FACEBOOK_PAGE: الكرة العالمية مباشر - Global Football]
+[POST_ID: FB_POST_99281_2026]
+[POST_CONTENT: نهاية المباراة القمة! ريال مدريد يقلب الطاولة ويفوز على بايرن ميونخ 3-2 في الدقائق الأخيرة بعد خطأ دفاعي قاتل من البايرن. ما هو رأيكم في تبديلات أنشيلوتي؟ وهل يتحمل دفاع البايرن المسؤولية كاملة؟]
+[TOP_INTENT: the, bayern, terrible]
+[CONTENT]:
+- [Comment ID: fb_c_009 | User ID: user_stefan_munich] The Bayern defense was a complete disaster in the last minutes. Unacceptable mistakes. (Frequency: 2)
+- [Comment ID: fb_c_006 | User ID: user_tarek_88] دفاع بايرن ميونخ كارثة الشوط الثاني، أخطاء بدائية متليقش بنصف نهائي. (Frequency: 1)
+- [Comment ID: fb_c_007 | User ID: user_hassan_kora] الدفاع بتاع البايرن ضيع الماتش، مفيش أي تمركز صح والهدف الثالث فضيحة. (Frequency: 1)
+- [Comment ID: fb_c_008 | User ID: user_mostafa_football] البايرن خسر بسبب غياب التركيز الدفاعي في آخر 10 دقائق. (Frequency: 1)
+- [Comment ID: fb_c_011 | User ID: user_samer_jordan] الحكم ظلم بايرن ميونخ في الكورة الأخيرة، مش تسلل خالص والهدف صحيح بنسبة 100%. (Frequency: 1)
+- [Comment ID: fb_c_012 | User ID: user_khaled_syria] قرارات التحكيم غريبة جداً، إلغاء الهدف الأخير للبايرن فيه شك كبير علامات استفهام. (Frequency: 1)
+- [Comment ID: fb_c_013 | User ID: user_omar_uae] صافرة الحكم كانت متسرعة في لقطة التسلل، حرمت البايرن من التعادل. (Frequency: 1)
+- [Comment ID: fb_c_014 | User ID: user_mark_uk] The referee blew the whistle too early on that offside call. Terrible refereeing. (Frequency: 1)
+<CLUSTER_END>
+
+<CLUSTER_START>
+[CLUSTER_ID: 1]
+[FACEBOOK_PAGE: الكرة العالمية مباشر - Global Football]
+[POST_ID: FB_POST_99281_2026]
+[POST_CONTENT: نهاية المباراة القمة! ريال مدريد يقلب الطاولة ويفوز على بايرن ميونخ 3-2 في الدقائق الأخيرة بعد خطأ دفاعي قاتل من البايرن. ما هو رأيكم في تبديلات أنشيلوتي؟ وهل يتحمل دفاع البايرن المسؤولية كاملة؟]
+[TOP_INTENT: the, an, ancelottis]
+[CONTENT]:
+- [Comment ID: fb_c_001 | User ID: user_ahmed_cairo] تبديلات أنشيلوتي نزلت قلبت الماتش تماماً، مدرب عبقري وبيعرف يقرا الملعب صح. (Frequency: 1)
+- [Comment ID: fb_c_002 | User ID: user_marwan_alex] أنشيلوتي غير مجرى المباراة تماماً بالتبديلات في الشوط الثاني. (Frequency: 1)
+- [Comment ID: fb_c_003 | User ID: user_youssef_9] التبديلات هي اللي كسبت ريال مدريد النهاردة، قراءة ممتازة من أنشيلوتي. (Frequency: 1)
+- [Comment ID: fb_c_004 | User ID: user_david_madrid] Ancelotti's substitutions completely changed the dynamic of the game. Brilliant tactical move. (Frequency: 1)
+- [Comment ID: fb_c_005 | User ID: user_jean_paris] Les changements d'Ancelotti ont sauvé le Real Madrid ce soir. Magnifique! (Frequency: 1)
+- [Comment ID: fb_c_015 | User ID: user_hany_zag] الماتش كان ممتع جداً، من أحسن مباريات الموسم الصراحة الإثارة لآخر ثانية. (Frequency: 1)
+- [Comment ID: fb_c_016 | User ID: user_ali_saudi] مباراة مجنونة تليق بدوري أبطال أوروبا، مبروك لعشاق الملكي وهاردلك للبافاري. (Frequency: 1)
+- [Comment ID: fb_c_017 | User ID: user_robert_usa] What an incredible match! This is why we love Champions League football. (Frequency: 1)
+<CLUSTER_END>

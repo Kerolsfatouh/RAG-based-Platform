@@ -7,3 +7,5 @@ bertopic==0.16.0
 umap-learn==0.5.5
 hdbscan==0.8.33
 scikit-learn==1.4.0
+transformers>=4.37.0
+accelerate>=0.26.0
