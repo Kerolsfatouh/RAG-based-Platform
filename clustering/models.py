@@ -12,7 +12,7 @@ class FBComment(BaseModel):
     def clean_comment_fields(cls, v):
         return clean_text_for_json(v)
 
-class CommentInput(BaseModel):
+class PostInput(BaseModel):
     page_name: str
     post_id: str
     post_user_id: str
@@ -32,6 +32,18 @@ class CommentInput(BaseModel):
             raise ValueError("All provided comments contain only whitespace.")
         return cleaned
 
+
+class CommentInput(BaseModel):
+    posts: List[PostInput] = Field(..., min_length=1, max_length=50)
+
+    @field_validator("posts")
+    @classmethod
+    def unique_post_ids(cls, v):
+        ids = [p.post_id for p in v]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Duplicate post_id values found across posts.")
+        return v
+
 class OptimizedCluster(BaseModel):
     topic_id: int
     topic_keywords: str
@@ -45,3 +57,4 @@ class PipelineResponse(BaseModel):
     num_clusters: int
     noise_count: int
     optimized_data: List[OptimizedCluster]
+    failed_posts: List[str] = Field(default_factory=list)

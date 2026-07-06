@@ -57,19 +57,22 @@ async def update_knowledge(payload: CommentInput):
         try:
             pipeline = ClusteringPipeline()
             result = await asyncio.wait_for(
-                asyncio.to_thread(pipeline.process, payload.comments),
+                asyncio.to_thread(pipeline.process, payload.posts),
                 timeout=180.0
             )
             
-            # 2. Extract metadata and pass it to the formatter
-            metadata = {
-                "page_name": payload.page_name,
-                "post_id": payload.post_id,
-                "post_user_id": payload.post_user_id,
-                "post_content": payload.post_content
+            # 2. Build per-post metadata (page_name/post_content per post_id) and
+            #    pass it to the formatter. payload now holds a *list* of posts,
+            #    so there's no single page_name/post_content on payload itself.
+            posts_metadata = {
+                post.post_id: {
+                    "page_name": post.page_name,
+                    "post_content": post.post_content
+                }
+                for post in payload.posts
             }
             
-            llm_ready_chunks = format_clusters_to_chunks(result["optimized_data"], metadata)
+            llm_ready_chunks = format_clusters_to_chunks(result["optimized_data"], posts_metadata)
             
             os.makedirs("data", exist_ok=True)
             with open("data/daily_clusters.txt", "w", encoding="utf-8") as f:
@@ -78,7 +81,9 @@ async def update_knowledge(payload: CommentInput):
             return {
                 "status": "success", 
                 "message": "Knowledge base updated and cache cleared.",
-                "clusters_found": result["num_clusters"]
+                "clusters_found": result["num_clusters"],
+                "posts_processed": len(payload.posts),
+                "failed_posts": result.get("failed_posts", [])
             }
             
         except Exception as e:

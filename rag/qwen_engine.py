@@ -83,13 +83,13 @@ class QwenEngine:
         return response.strip()
 
     def ask(self, question: str) -> dict:
-        clusters = self._parse_clusters_file()
+        clusters = self._parse_clusters_file() 
         if not clusters:
-            return {"answer": "I don't have any daily data available yet. Please run the update pipeline first."}
+            return {"answer": "I don't have any daily data available yet. Please run the update pipeline first."} 
 
-        logger.info(f"Phase 0: Reformulating raw query: {question}")
-        rewriter_prompt = REWRITER_USER_TEMPLATE.format(raw_question=question)
-        optimized_query = self._generate_response(REWRITER_SYSTEM_PROMPT, rewriter_prompt, max_new_tokens=150)
+        logger.info(f"Phase 0: Reformulating raw query: {question}") 
+        rewriter_prompt = REWRITER_USER_TEMPLATE.format(raw_question=question) 
+        optimized_query = self._generate_response(REWRITER_SYSTEM_PROMPT, rewriter_prompt, max_new_tokens=150) 
         logger.info(f"Optimized Query for RAG: {optimized_query}")
 
         cluster_summaries = ""
@@ -103,33 +103,49 @@ class QwenEngine:
         router_response = self._generate_response(ROUTER_SYSTEM_PROMPT, router_prompt, max_new_tokens=50)
         logger.info(f"Qwen Router output: {router_response}")
         
+        try:
+            router_output = json.loads(router_response.strip())
+            target_ids_raw = router_output.get("target_clusters", [])
+            required_depth = router_output.get("depth", 1)
+        except json.JSONDecodeError:
+            logger.warning("Router output was not valid JSON. Falling back to full search.")
+            target_ids_raw = [int(num) for num in re.findall(r'\d+', router_response)]
+            required_depth = 1
+
         target_ids = []
-        numbers = re.findall(r'\d+', router_response)
         valid_keys = list(clusters.keys())
         
-        for num in numbers:
+        for num in target_ids_raw:
             if int(num) in valid_keys:
                 target_ids.append(int(num))
                 
-        target_ids = list(set(target_ids))
+        target_ids = list(set(target_ids)) 
 
         if not target_ids:
-            logger.warning("Router failed to select specific clusters. Falling back to Full Search.")
-            target_ids = valid_keys
+            logger.warning("Router failed to select specific clusters. Falling back to Full Search.") 
+            target_ids = valid_keys 
+            required_depth = 1 
+        logger.info(f"Pass 2: Deep diving into clusters {target_ids} with depth {required_depth}...")
+        
 
-        logger.info(f"Pass 2: Deep diving into clusters {target_ids}...")
         target_chunks = ""
         for t_id in target_ids:
-            target_chunks += f"<CLUSTER {t_id}>\n{clusters[t_id]['full_chunk']}\n</CLUSTER>\n\n"
+            chunk_content = clusters[t_id]['full_chunk']
+            
+            if required_depth == 1:
+                chunk_content = re.sub(r'\|_ \[Sub-cluster Hidden\].*?(?=- \[Main\]|<CLUSTER_END>)', '', chunk_content, flags=re.DOTALL)
+                
+            target_chunks += f"<CLUSTER {t_id}>\n{chunk_content}\n</CLUSTER>\n\n"
 
         qa_prompt = QA_USER_TEMPLATE.format(
             target_chunks=target_chunks, 
             search_intent=optimized_query,
             question=question
-        )
-        final_answer = self._generate_response(QA_SYSTEM_PROMPT, qa_prompt, max_new_tokens=1024)
+        ) 
+        
+        final_answer = self._generate_response(QA_SYSTEM_PROMPT, qa_prompt, max_new_tokens=1024) 
 
         return {
             "answer": final_answer,
             "clusters_used": target_ids
-        }
+        } 
