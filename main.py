@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 global_gpu_lock = asyncio.Lock()
 qwen_engine = None 
 
-QWEN_LOCAL_PATH = "Qwen/Qwen3.5-4B"
+# QWEN_LOCAL_PATH = "Qwen/Qwen3.5-4B"
+QWEN_LOCAL_PATH = "qwen/qwen2.5-vl-72b-instruct"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

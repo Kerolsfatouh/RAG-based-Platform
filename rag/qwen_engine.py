@@ -4,6 +4,7 @@ import json
 import torch
 import logging
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from openai import OpenAI
 from rag.prompt_templates import (
     ROUTER_SYSTEM_PROMPT, ROUTER_USER_TEMPLATE,
     QA_SYSTEM_PROMPT, QA_USER_TEMPLATE,
@@ -14,21 +15,33 @@ logger = logging.getLogger(__name__)
 
 class QwenEngine:
     def __init__(self, model_name):
-        logger.info(f"Loading {model_name} into VRAM with INT8 Quantization...")
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            raise ValueError("OPENROUTER_API_KEY is not set.")
         
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
-        bnb_config = BitsAndBytesConfig(
-            load_in_8bit=True,
+        logger.info(f"Connecting to OpenRouter API for {model_name}...")
+        self.model_name = model_name
+        self.client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key
         )
+        logger.info("OpenRouter client is ready!")
+
+        # logger.info(f"Loading {model_name} into VRAM with INT8 Quantization...")
         
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            quantization_config=bnb_config,
-            device_map="auto"
-        )
-        logger.info("Qwen is ready for inference!")
+        # self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        
+        # bnb_config = BitsAndBytesConfig(
+        #     load_in_8bit=True,
+        # )
+        
+        # self.model = AutoModelForCausalLM.from_pretrained(
+        #     model_name,
+        #     quantization_config=bnb_config,
+        #     device_map="auto"
+        # )
+        # logger.info("Qwen is ready for inference!")
 
     def _parse_clusters_file(self, filepath="data/daily_clusters.txt"):
         if not os.path.exists(filepath):
@@ -55,32 +68,43 @@ class QwenEngine:
         return clusters
 
     def _generate_response(self, system_prompt: str, user_prompt: str, max_new_tokens=512) -> str:
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
+        # messages = [
+        #     {"role": "system", "content": system_prompt},
+        #     {"role": "user", "content": user_prompt}
+        # ]
         
-        text = self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
+        # text = self.tokenizer.apply_chat_template(
+        #     messages,
+        #     tokenize=False,
+        #     add_generation_prompt=True
+        # )
         
-        model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
+        # model_inputs = self.tokenizer([text], return_tensors="pt").to(self.device)
         
-        generated_ids = self.model.generate(
-            **model_inputs,
-            max_new_tokens=max_new_tokens,
+        # generated_ids = self.model.generate(
+        #     **model_inputs,
+        #     max_new_tokens=max_new_tokens,
+        #     temperature=0.1,
+        #     do_sample=True
+        # )
+        
+        # generated_ids = [
+        #     output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        # ]
+        
+        # response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        # return response.strip()
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=max_new_tokens,
             temperature=0.1,
-            do_sample=True
         )
         
-        generated_ids = [
-            output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
-        ]
-        
-        response = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
-        return response.strip()
+        return response.choices[0].message.content.strip()
 
     def ask(self, question: str) -> dict:
         clusters = self._parse_clusters_file() 
