@@ -1,6 +1,6 @@
-# RAG-based Platform for Sports Fan Communities
+# RAG-based Platform for contant Communities
 
-An **Agentic RAG** system built to analyze comments on sports-related Facebook pages (e.g. football/soccer pages), turn them into a queryable knowledge base, and let users ask natural-language questions (up to 100 language) that get answered based on what fans actually said.
+An **Agentic RAG** system built to analyze comments, turn them into a queryable knowledge base, and let users ask natural-language questions (up to 100 language) that get answered based on what fans actually said.
 
 The core idea: instead of someone scrolling through thousands of comments under a post, the system **clusters** semantically similar comments, summarizes them, and exposes them to a local LLM (Qwen) through a RAG pipeline with a smart router that decides which cluster(s) likely hold the answer.
 
