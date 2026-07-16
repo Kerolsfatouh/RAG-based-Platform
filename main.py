@@ -18,8 +18,12 @@ logger = logging.getLogger(__name__)
 global_gpu_lock = asyncio.Lock()
 qwen_engine = None 
 
-# QWEN_LOCAL_PATH = "Qwen/Qwen3.5-4B"
-QWEN_LOCAL_PATH = "qwen/qwen2.5-vl-72b-instruct"
+# Toggle between local in-VRAM inference and the OpenRouter API.
+# Set QWEN_USE_LOCAL=true in the environment to run Qwen locally instead.
+QWEN_USE_LOCAL = os.getenv("QWEN_USE_LOCAL", "false").strip().lower() in ("1", "true", "yes")
+QWEN_LOCAL_MODEL = os.getenv("QWEN_LOCAL_MODEL", "Qwen/Qwen3.5-4B")
+QWEN_API_MODEL = os.getenv("QWEN_API_MODEL", "qwen/qwen2.5-vl-72b-instruct")
+QWEN_MODEL_PATH = QWEN_LOCAL_MODEL if QWEN_USE_LOCAL else QWEN_API_MODEL
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,6 +31,7 @@ async def lifespan(app: FastAPI):
     clear_vram()
     yield
     if qwen_engine:
+        qwen_engine.free_vram()
         del qwen_engine
     clear_vram()
 
@@ -37,7 +42,9 @@ def health_check():
     return {
         "status": "ready",
         "gpu_locked": global_gpu_lock.locked(),
-        "active_model": "Qwen" if qwen_engine else "None"
+        "active_model": "Qwen" if qwen_engine else "None",
+        "qwen_backend": "local" if QWEN_USE_LOCAL else "api",
+        "qwen_model": QWEN_MODEL_PATH
     }
 
 @app.post("/api/v1/update-knowledge", tags=["Knowledge Base"])
@@ -50,6 +57,7 @@ async def update_knowledge(payload: CommentInput):
         clear_smart_cache()
         
         if qwen_engine is not None:
+            qwen_engine.free_vram()
             del qwen_engine
             qwen_engine = None
         clear_vram()
@@ -122,7 +130,9 @@ async def ask_qwen(payload: QueryInput):
 
         if qwen_engine is None:
             try:
-                qwen_engine = await asyncio.to_thread(QwenEngine, model_name=QWEN_LOCAL_PATH)
+                qwen_engine = await asyncio.to_thread(
+                    QwenEngine, model_name=QWEN_MODEL_PATH, use_local=QWEN_USE_LOCAL
+                )
             except Exception as e:
                 clear_vram()
                 raise HTTPException(status_code=500, detail="Failed to load LLM.")
