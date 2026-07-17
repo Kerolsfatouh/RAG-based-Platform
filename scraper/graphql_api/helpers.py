@@ -64,23 +64,26 @@ def extract_user_id_from_url(url, cookies=None):
         return None
 
 
-
-
-
 def convert_post_id_to_feedback_id(post_id):
     """Convert post_id to feedback_id using base64 encoding"""
     feedback_id = base64.b64encode(f"feedback:{post_id}".encode()).decode()
     return feedback_id
 
 
-def fetch_comments_for_post(post_id, cookies=None):
-    """Fetch all comments and replies for a given post_id"""
+def fetch_comments_for_post(post_id, cookies=None, max_comments=None):
+    """
+    Fetch all comments and replies for a given post_id.
+
+    max_comments: if set, caps how many top-level comments are pulled for this
+    post before stopping (see comment_scraper.fetch_comments). Replies for each
+    collected comment are still fetched in full.
+    """
     feedback_id = convert_post_id_to_feedback_id(post_id)
     print(f"  Fetching comments for post {post_id}...")
     print(f"  Using feedback_id: {feedback_id}")
     
     all_data = []
-    comments, post_info = fetch_comments(feedback_id, cookies=cookies)
+    comments, post_info = fetch_comments(feedback_id, cookies=cookies, max_comments=max_comments)
     
     for c in comments:
         print(f"    🗨️ {c.get('text', '')[:50]}...")
@@ -95,4 +98,3 @@ def fetch_comments_for_post(post_id, cookies=None):
     
     print(f"  ✓ Found {len(all_data)} comments")
     return all_data, post_info
-

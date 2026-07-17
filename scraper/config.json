@@ -5,5 +5,7 @@
   "reddit_subs": [
     "soccer"
   ],
-  "api_endpoint": "http://localhost:8000/api/v1/update-knowledge"
+  "api_endpoint": "http://localhost:8000/api/v1/update-knowledge",
+  "scrape_limit": 5,
+  "max_comments_per_post": 30
 }

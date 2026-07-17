@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class FacebookAdapter(BaseAdapter):
     
-    def scrape_latest_posts(self, target_url: str, limit: int = 1) -> List[Dict]:
+    def scrape_latest_posts(self, target_url: str, limit: int = 1, max_comments: int = None) -> List[Dict]:
         logger.info(f"Starting High-Volume GraphQL scrape for: {target_url}")
         
         # 1. Get Page ID
@@ -50,7 +50,7 @@ class FacebookAdapter(BaseAdapter):
             
             # 4. Fetch Comments (GraphQL pulls hundreds of comments instantly!)
             try:
-                comments_data_raw, _ = fetch_comments_for_post(post_id)
+                comments_data_raw, _ = fetch_comments_for_post(post_id, max_comments=max_comments)
                 
                 # Filter and format comments
                 valid_comments = []

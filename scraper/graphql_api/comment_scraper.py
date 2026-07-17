@@ -146,7 +146,14 @@ def fb_json(response_text):
     return json.loads(first)
 
 
-def fetch_comments(feedback_id, cookies=None):
+def fetch_comments(feedback_id, cookies=None, max_comments=None):
+    """
+    Paginates through a post's comments.
+
+    max_comments: if set, stops as soon as this many comments have been collected,
+    instead of paging until Facebook's cursor runs out. Useful to bound how long a
+    single busy post can take to scrape (previously unbounded).
+    """
     results = []
     cursor = None
     response_count = 0
@@ -217,6 +224,10 @@ def fetch_comments(feedback_id, cookies=None):
                 "_expansion_token": fb["expansion_info"]["expansion_token"]  # Internal use only
             })
 
+            if max_comments is not None and len(results) >= max_comments:
+                print(f"  🛑 Reached max_comments cap ({max_comments}), stopping pagination.")
+                return results, post_info
+
         cursor = comments_block.get("page_info", {}).get("end_cursor")
         #break
         if not cursor:
@@ -264,6 +275,3 @@ def fetch_replies(comment, cookies=None):
         })
 
     return replies
-
-
-
