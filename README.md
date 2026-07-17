@@ -9,9 +9,9 @@ The core idea: instead of someone scrolling through thousands of comments under 
 ## Architecture Overview
 
 ```
-(Scraper) → /update-knowledge → Clustering Pipeline → daily_clusters.txt
-                                                                              │
-User Question → /ask → Smart Cache (hit?) → Qwen Router → Qwen QA → Answer
+(Scraper) → /update-knowledge → Clustering Pipeline → ChromaDB (Vector Store)
+                                                                            │
+User Question → /ask → Smart Cache (hit?) → Qwen Router (OpenRouter) → Qwen QA → Answer
 ```
 
 ### Knowledge Update Flow
@@ -21,7 +21,7 @@ User Question → /ask → Smart Cache (hit?) → Qwen Router → Qwen QA → An
    - If there are fewer than 15 comments → everything goes into a single cluster.
    - Otherwise → **UMAP** for dimensionality reduction, then **HDBSCAN** clustering orchestrated through **BERTopic**.
    - Within each topic, `community_detection` (Sentence-Transformers) groups near-duplicate comments together and picks a representative text + frequency count.
-3. `chunk_formatter` converts the clustering output into a structured text format (`<CLUSTER_START> ... <CLUSTER_END>`) with metadata (page name, post, post content), written to `data/daily_clusters.txt`.
+3. `chunk_formatter` converts the clustering output into a structured text format (`<CLUSTER_START> ... <CLUSTER_END>`) with metadata (page name, post, post content), seamlessly stored in **ChromaDB** for persistent vector retrieval.
 4. The old cache is fully wiped (`clear_smart_cache`) since the underlying data has changed.
 5. VRAM is cleared after every heavy step (`vram_manager`), since the embedding model and the LLM can't both fit in memory at once.
 
@@ -78,7 +78,8 @@ RAG-based-Platform-for-Sports-Fan-Communities/
 │   └── vram_manager.py       # Frees RAM/VRAM after heavy operations
 │
 ├── data/                      # (auto-generated at runtime)
-│   ├── daily_clusters.txt    # Latest extracted clusters (overwritten on every update)
+│   ├── chroma_db/            # Persistent Vector Database (Chroma)
+│   ├── page_post/            # Local JSON backups of raw scraped threads
 │   └── smart_cache.json      # Cached questions and answers
 │
 ├── rag/
@@ -191,11 +192,16 @@ Takes a question in any language/dialect, and returns an answer grounded in the 
 
 ---
 
+## Completed Milestones 🚀
+
+- **High-Volume Facebook Scraper**: Replaced legacy browser automation with a direct, ultra-fast GraphQL API integration. The scraper automatically extracts entire post comment threads natively and saves local JSON backups.
+- **Streaming Pipeline**: The scraper is now fully integrated as a daemon orchestrator that streams massive amounts of post data directly to the `/update-knowledge` endpoint in real-time, preventing memory bottlenecks.
+- **Persistent Vector Storage (ChromaDB)**: Upgraded the RAG architecture to persist embedded clusters into **ChromaDB** instead of relying purely on ephemeral memory and flat text files.
+- **Hybrid LLM Infrastructure (OpenRouter)**: Integrated an interchangeable `.env`-driven backend that allows seamlessly toggling between running LLMs locally via HuggingFace or offloading generation to top-tier models via the OpenRouter API (e.g., `qwen/qwen2.5-vl-72b-instruct`).
+
 ## Work in Progress 🚧
 
-- **`scraper/`**: module for automatically pulling comments from Facebook pages (still in development) — will be the actual data source feeding `/update-knowledge` instead of manual input.
-- **Docker packaging**: containerized build/run setup, still being finalized for deployment.
+- **Docker packaging**: Containerized build/run setup, still being finalized for deployment.
 - Incremental/partial knowledge updates instead of a full cache wipe every time.
-- Persisting clusters in a database instead of a flat text file.
 
 ---
