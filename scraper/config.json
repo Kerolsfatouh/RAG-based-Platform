@@ -1,0 +1,9 @@
+{
+  "facebook_pages": [
+    "https://www.facebook.com/realmadrid"
+  ],
+  "reddit_subs": [
+    "soccer"
+  ],
+  "api_endpoint": "http://localhost:8000/api/v1/update-knowledge"
+}

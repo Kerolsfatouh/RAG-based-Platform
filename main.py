@@ -2,15 +2,17 @@ import logging
 import asyncio
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, BackgroundTasks
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from clustering.models import CommentInput
 from clustering.pipeline import ClusteringPipeline
 from core.vram_manager import clear_vram
-from core.chunk_formatter import format_clusters_to_chunks
+from core.database import VectorDB
 from core.smart_cache import check_cache, save_to_cache, clear_smart_cache
 from rag.qwen_engine import QwenEngine
+from scraper.orchestrator import run as run_scraper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -80,13 +82,9 @@ async def update_knowledge(payload: CommentInput):
                 }
                 for post in payload.posts
             }
-            
-            llm_ready_chunks = format_clusters_to_chunks(result["optimized_data"], posts_metadata)
-            
-            os.makedirs("data", exist_ok=True)
-            with open("data/daily_clusters.txt", "w", encoding="utf-8") as f:
-                f.write(llm_ready_chunks)
-                
+            # Save to ChromaDB Vector Database
+            db = VectorDB()
+            db.add_clusters(result["optimized_data"], posts_metadata)
             return {
                 "status": "success", 
                 "message": "Knowledge base updated and cache cleared.",
@@ -150,3 +148,45 @@ async def ask_qwen(payload: QueryInput):
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail="Error generating answer.")
+
+@app.post("/api/v1/scrape", tags=["Scraping Pipeline"])
+async def trigger_scraper(background_tasks: BackgroundTasks):
+    """
+    Triggers the scraping orchestrator. It runs in the background, 
+    scrapes the configured pages using Playwright, and automatically 
+    feeds the newly scraped data directly into the RAG VectorDB.
+    """
+    background_tasks.add_task(run_scraper)
+    return {
+        "status": "success",
+        "message": "Scraper pipeline started in the background! It will finish silently and update the Knowledge Base."
+    }
+
+@app.get("/api/v1/knowledge", tags=["Knowledge Base"], response_class=HTMLResponse)
+async def view_knowledge_base():
+    """Returns a simple HTML dashboard to visualize what is inside ChromaDB"""
+    db = VectorDB()
+    try:
+        results = db.collection.get()
+    except Exception:
+        return "<h1>Database is empty or not initialized.</h1>"
+        
+    if not results or not results.get('ids'):
+        return "<h1>No data scraped yet!</h1>"
+        
+    html = "<!DOCTYPE html><html><head><title>Knowledge Dashboard</title></head><body style='font-family: Arial; padding: 20px; background-color: #f4f6f9;'>"
+    html += "<div style='max-width: 800px; margin: 0 auto;'>"
+    html += "<h2 style='color: #333;'>🧠 Live Scraper Knowledge Dashboard</h2>"
+    html += f"<p style='color: #666;'>Total clustered comments in database: <b>{len(results['ids'])}</b></p><hr style='border: 1px solid #ddd;'>"
+    
+    for i in range(len(results['ids'])):
+        meta = results['metadatas'][i]
+        content = results['documents'][i].replace('\n', '<br>')
+        html += f"<div style='border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05);'>"
+        html += f"<span style='background: #007bff; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;'>{meta.get('intent', 'General')}</span> "
+        html += f"<span style='background: #28a745; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;'>{meta.get('page_name', 'Unknown Page')}</span>"
+        html += f"<p style='margin-top: 15px; color: #333; line-height: 1.5;'>{content}</p>"
+        html += "</div>"
+        
+    html += "</div></body></html>"
+    return html

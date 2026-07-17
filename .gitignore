@@ -76,3 +76,6 @@ data/daily_clusters.txt
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+/page_post
+/data
