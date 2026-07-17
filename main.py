@@ -36,6 +36,15 @@ QWEN_LOCAL_MODEL = os.getenv("QWEN_LOCAL_MODEL", "Qwen/Qwen3.5-4B")
 QWEN_API_MODEL = os.getenv("QWEN_API_MODEL", "qwen/qwen2.5-vl-72b-instruct")
 QWEN_MODEL_PATH = QWEN_LOCAL_MODEL if QWEN_USE_LOCAL else QWEN_API_MODEL
 
+# In API mode (QWEN_USE_LOCAL=false), the embedding pipeline (BGE-M3) is never
+# freed automatically during runtime -- the swap logic in _ensure_qwen_loaded()
+# only frees it when local Qwen needs the VRAM, which never happens in API mode.
+# Set this to true to explicitly free it right after every /update-knowledge call
+# instead of keeping it warm indefinitely. Trades a reload cost on the next
+# update-knowledge call for a smaller idle VRAM footprint -- useful on a
+# GPU-constrained box, or while testing.
+AUTO_FREE_EMBEDDING_AFTER_UPDATE = os.getenv("AUTO_FREE_EMBEDDING_AFTER_UPDATE", "false").strip().lower() in ("1", "true", "yes")
+
 
 def _ensure_pipeline_loaded() -> ClusteringPipeline:
     """
@@ -96,8 +105,35 @@ def health_check():
         "gpu_locked": global_gpu_lock.locked(),
         "active_model": "Qwen" if qwen_engine else ("Embedding Pipeline" if pipeline else "None"),
         "qwen_backend": "local" if QWEN_USE_LOCAL else "api",
-        "qwen_model": QWEN_MODEL_PATH
+        "qwen_model": QWEN_MODEL_PATH,
+        "auto_free_embedding_after_update": AUTO_FREE_EMBEDDING_AFTER_UPDATE
     }
+
+
+@app.post("/api/v1/free-vram", tags=["Monitoring"])
+async def free_vram_endpoint():
+    """
+    Manually releases whichever model(s) are currently loaded in VRAM.
+    Mainly useful in API mode (QWEN_USE_LOCAL=false), where the embedding
+    pipeline (BGE-M3) is otherwise never freed during runtime -- the swap
+    logic in _ensure_qwen_loaded()/_ensure_pipeline_loaded() only frees one
+    model to make room for the other, which never triggers when Qwen is
+    running through the OpenRouter API instead of locally.
+    """
+    global pipeline, qwen_engine
+    async with global_gpu_lock:
+        freed = []
+        if pipeline is not None:
+            await asyncio.to_thread(pipeline.free_vram)
+            pipeline = None
+            freed.append("embedding_pipeline")
+        if qwen_engine is not None:
+            await asyncio.to_thread(qwen_engine.free_vram)
+            qwen_engine = None
+            freed.append("qwen")
+        await asyncio.to_thread(clear_vram)
+
+    return {"status": "success", "freed": freed}
 
 
 @app.post("/api/v1/update-knowledge", tags=["Knowledge Base"])
@@ -179,8 +215,13 @@ async def update_knowledge(payload: CommentInput):
             raise HTTPException(status_code=500, detail="Update failed.")
 
         finally:
-            # Housekeeping only (gc + empty_cache) -- does NOT unload the pipeline;
-            # it stays warm for the next update instead of being torn down every call.
+            # If enabled, explicitly free the embedding pipeline right after this
+            # request instead of leaving it warm -- see AUTO_FREE_EMBEDDING_AFTER_UPDATE
+            # above. Off by default: normally the pipeline stays warm for the next
+            # update instead of being torn down every call.
+            if AUTO_FREE_EMBEDDING_AFTER_UPDATE and pipeline is not None:
+                await asyncio.to_thread(pipeline.free_vram)
+                pipeline = None
             clear_vram()
 
 

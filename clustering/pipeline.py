@@ -29,6 +29,46 @@ class ClusteringPipeline:
                 torch.cuda.ipc_collect()
             logger.info("BGE-M3 model forcefully removed from VRAM")
 
+    @staticmethod
+    def _extract_fallback_keywords(texts: list, top_n: int = 3) -> str:
+        """
+        Best-effort keyword extraction for cases where full BERTopic topic
+        modeling doesn't run -- single-cluster fallback (doc_count < 15) or the
+        BERTopic-failure fallback below. Previously these paths always labeled
+        every cluster with the same static "General/Mixed Content" string
+        regardless of actual content, which made every post's clusters
+        indistinguishable from each other in the dashboard/debug dump. This
+        does simple word-frequency counting over the given texts instead, so
+        the label at least reflects what's actually being talked about. Falls
+        back to "General/Mixed Content" only if no usable vocabulary remains
+        (e.g. texts are entirely stopwords/emojis/single characters).
+        """
+        try:
+            nltk.download('stopwords', quiet=True)
+            multi_lang_stopwords = []
+            for lang in ['arabic', 'english', 'french', 'spanish']:
+                try:
+                    multi_lang_stopwords.extend(stopwords.words(lang))
+                except Exception:
+                    pass
+
+            vectorizer = CountVectorizer(
+                min_df=1,
+                stop_words=multi_lang_stopwords if multi_lang_stopwords else None,
+                max_features=50
+            )
+            doc_term_matrix = vectorizer.fit_transform(texts)
+            word_counts = doc_term_matrix.sum(axis=0).A1
+            vocabulary = vectorizer.get_feature_names_out()
+
+            top_indices = word_counts.argsort()[::-1][:top_n]
+            top_words = [vocabulary[i] for i in top_indices if word_counts[i] > 0]
+
+            return ", ".join(top_words) if top_words else "General/Mixed Content"
+        except Exception as e:
+            logger.warning(f"Fallback keyword extraction failed, using generic label: {e}")
+            return "General/Mixed Content"
+
     def optimize_clusters(self, df: pd.DataFrame, embeddings: torch.Tensor, topic_keywords_dict: dict = None, similarity_threshold: float = 0.85) -> list:
         optimized_data = []
         if topic_keywords_dict is None:
@@ -115,7 +155,12 @@ class ClusteringPipeline:
                 "user_id": user_ids, 
                 "Predicted_Topic": 0
             })
-            optimized_data = self.optimize_clusters(df, embeddings_tensor)
+            # Real BERTopic doesn't run for this small a doc count, so there's no
+            # topic_keywords_dict to draw from. Extract a real word-frequency
+            # summary of this post's own comments instead of leaving every post's
+            # single cluster labeled with the same generic default.
+            fallback_keywords = self._extract_fallback_keywords(texts)
+            optimized_data = self.optimize_clusters(df, embeddings_tensor, topic_keywords_dict={0: fallback_keywords})
             return {
                 "num_clusters": 1,
                 "noise_count": 0,
@@ -175,7 +220,8 @@ class ClusteringPipeline:
                 "user_id": user_ids,
                 "Predicted_Topic": 0
             })
-            optimized_data = self.optimize_clusters(df, embeddings_tensor)
+            fallback_keywords = self._extract_fallback_keywords(texts)
+            optimized_data = self.optimize_clusters(df, embeddings_tensor, topic_keywords_dict={0: fallback_keywords})
             return {
                 "num_clusters": 1,
                 "noise_count": 0,
