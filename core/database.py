@@ -26,16 +26,19 @@ class VectorDB:
             
             meta = posts_metadata.get(post_id, {})
             page_name = meta.get('page_name', 'Unknown Page')
+            post_content = meta.get('post_content', 'No content')
             
             # Format the exact text that the LLM will read
             content = f"Page: {page_name}\n"
+            content += f"Post ID: {post_id}\n"
+            content += f"Post Content: {post_content}\n"
             content += f"Topic/Intent: {cluster['topic_keywords']}\n"
-            content += f"Main Comment: {cluster['representative_text']}"
+            content += f"Main Comment [ID: {cluster.get('comment_id', 'N/A')} | User: {cluster.get('user_id', 'N/A')}]: {cluster['representative_text']}"
             
             if cluster.get('similar_docs'):
                 content += "\nSimilar Comments in this thread:"
                 for sub in cluster['similar_docs']:
-                    content += f"\n- {sub.get('text')}"
+                    content += f"\n- [ID: {sub.get('comment_id', 'N/A')} | User: {sub.get('user_id', 'N/A')}] {sub.get('text')}"
                     
             documents.append(content)
             metadatas.append({
