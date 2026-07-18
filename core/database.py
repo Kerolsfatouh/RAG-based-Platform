@@ -60,23 +60,8 @@ class VectorDB:
 
             meta = posts_metadata.get(post_id, {})
             page_name = meta.get('page_name', 'Unknown Page')
-<<<<<<< HEAD
             post_content = meta.get('post_content', 'No content')
-            
-            # Format the exact text that the LLM will read
-            content = f"Page: {page_name}\n"
-            content += f"Post ID: {post_id}\n"
-            content += f"Post Content: {post_content}\n"
-            content += f"Topic/Intent: {cluster['topic_keywords']}\n"
-            content += f"Main Comment [ID: {cluster.get('comment_id', 'N/A')} | User: {cluster.get('user_id', 'N/A')}]: {cluster['representative_text']}"
-            
-            if cluster.get('similar_docs'):
-                content += "\nSimilar Comments in this thread:"
-                for sub in cluster['similar_docs']:
-                    content += f"\n- [ID: {sub.get('comment_id', 'N/A')} | User: {sub.get('user_id', 'N/A')}] {sub.get('text')}"
-                    
-=======
-            intent = cluster['topic_keywords']
+            intent = cluster.get('topic_keywords', 'unknown')
 
             # Kept separate from `similar_text` (instead of always merged) so that
             # search() can hand back both pieces and the caller decides -- based on the
@@ -84,24 +69,28 @@ class VectorDB:
             # comments in the final answer context, same as the old regex-strip behavior.
             main_text = (
                 f"[Main] [Comment ID: {cluster.get('comment_id', 'N/A')} | "
-                f"User ID: {cluster.get('user_id', 'N/A')}] {cluster['representative_text']}"
+                f"User ID: {cluster.get('user_id', 'N/A')}] {cluster.get('representative_text', '')}"
             )
 
             similar_text = ""
             if cluster.get('similar_docs'):
                 sub_lines = [
-                    f"- [{sub.get('comment_id')} | {sub.get('user_id')}] {sub.get('text')}"
+                    f"- [{sub.get('comment_id', 'N/A')} | {sub.get('user_id', 'N/A')}] {sub.get('text', '')}"
                     for sub in cluster['similar_docs']
                 ]
                 similar_text = "\n".join(sub_lines)
 
             # The embedded/searched document still includes everything, so recall isn't
             # hurt by hiding the similar comments -- only the *answer context* respects depth.
-            content = f"Page: {page_name}\nTopic/Intent: {intent}\nMain Comment: {cluster['representative_text']}"
+            content = (
+                f"Page: {page_name}\n"
+                f"Post ID: {post_id}\n"
+                f"Post Content: {post_content}\n"
+                f"Topic/Intent: {intent}\n"
+                f"Main Comment: {cluster.get('representative_text', '')}"
+            )
             if similar_text:
                 content += "\nSimilar Comments in this thread:\n" + similar_text
-
->>>>>>> 5cffe7f (refactor: improve RAG pipeline stability)
             documents.append(content)
             metadatas.append({
                 "post_id": str(post_id),
